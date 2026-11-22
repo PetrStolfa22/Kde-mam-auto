@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kde mám auto?</title>
+  <style>
+    :root {
+      --primary: #2563eb;
+      --primary-dark: #1d4ed8;
+      --bg: #f8fafc;
+      --card-bg: #ffffff;
+      --text: #1e293b;
+      --text-light: #64748b;
+      --border: #e2e8f0;
+      --danger: #ef4444;
+      --danger-dark: #dc2626;
+      --success: #22c55e;
+      --success-dark: #16a34a;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      margin: 0;
+      padding: 16px;
+      display: flex;
+      justify-content: center;
+      min-height: 100vh;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 480px;
+    }
+
+    h1 {
+      text-align: center;
+      font-size: 1.5rem;
+      margin-bottom: 24px;
+      color: var(--text);
+    }
+
+    .card {
+      background: var(--card-bg);
+      border-radius: 16px;
+      padding: 20px;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.08);
+      margin-bottom: 16px;
+    }
+
+    .status-badge {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 9999px;
+      font-size: 0.875rem;
+      font-weight: 600;
+      margin-bottom: 12px;
+    }
+
+    .status-badge.parked {
+      background-color: #dcfce7;
+      color: #166534;
+    }
+
+    .status-badge.empty {
+      background-color: #f1f5f9;
+      color: var(--text-light);
+    }
+
+    .btn {
+      display: block;
+      width: 100%;
+      padding: 14px;
+      border: none;
+      border-radius: 12px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      text-align: center;
+      text-decoration: none;
+      transition: background-color 0.2s ease;
+      margin-top: 10px;
+      box-sizing: border-box;
+    }
+
+    .btn-primary {
+      background-color: var(--primary);
+      color: #ffffff;
+    }
+
+    .btn-primary:hover {
+      background-color: var(--primary-dark);
+    }
+
+    .btn-danger {
+      background-color: var(--danger);
+      color: #ffffff;
+    }
+
+    .btn-danger:hover {
+      background-color: var(--danger-dark);
+    }
+
+    .btn-success {
+      background-color: var(--success);
+      color: #ffffff;
+    }
+
+    .btn-success:hover {
+      background-color: var(--success-dark);
+    }
+
+    .info-row {
+      margin: 10px 0;
+      font-size: 0.95rem;
+      color: var(--text-light);
+    }
+
+    .info-row strong {
+      color: var(--text);
+    }
+
+    input[type="text"],
+    input[type="file"] {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 1rem;
+      margin-top: 6px;
+      margin-bottom: 12px;
+      box-sizing: border-box;
+    }
+
+    .photo-preview {
+      width: 100%;
+      max-height: 200px;
+      object-fit: cover;
+      border-radius: 8px;
+      margin-top: 8px;
+      display: none;
+    }
+
+    .hidden {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🚗 Kde mám auto?</h1>
+
+    <!-- Hlavní stavový panel -->
+    <div class="card">
+      <div id="statusBadge" class="status-badge empty">Auto není zaparkováno</div>
+
+      <div id="noCarSection">
+        <p class="info-row">Ulož si aktuální polohu auta, abys ho později snadno našel.</p>
+        <button class="btn btn-primary" onclick="parkCar()">📍 Zaparkovat zde</button>
+      </div>
+
+      <div id="carSection" class="hidden">
+        <div class="info-row"><strong>Čas uložení:</strong> <span id="parkedTime">-</span></div>
+        <div class="info-row"><strong>Souřadnice:</strong> <span id="coordsText">-</span></div>
+
+        <!-- Poznámka -->
+        <div style="margin-top: 14px;">
+          <label class="info-row" for="noteInput"><strong>Poznámka (např. patro, sektor):</strong></label>
+          <input type="text" id="noteInput" placeholder="Např. Garáž -2, modrá zóna...">
+          <button class="btn btn-primary" onclick="saveNote()">💾 Uložit poznámku</button>
+        </div>
+
+        <!-- Fotka -->
+        <div style="margin-top: 14px;">
+          <label class="info-row" for="photoInput"><strong>Fotka místa:</strong></label>
+          <input type="file" id="photoInput" accept="image/*" capture="environment" onchange="handlePhoto(event)">
+          <img id="photoPreview" class="photo-preview" alt="Náhled místa parkování">
+        </div>
+
+        <!-- Navigační tlačítko -->
+        <div style="margin-top: 16px;">
+          <a id="navBtn" href="#" target="_blank" rel="noopener noreferrer" class="btn btn-success">
+            🧭 Navigovat k autu
+          </a>
+          <button class="btn btn-danger" onclick="clearCar()">🗑️ Vyzvednout auto / Smazat</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const STORAGE_KEY = "kdeMamAutoData";
+    let carData = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
+
+    function updateUI() {
+      const statusBadge = document.getElementById("statusBadge");
+      const noCarSection = document.getElementById("noCarSection");
+      const carSection = document.getElementById("carSection");
+
+      if (carData) {
+        statusBadge.textContent = "Zaparkováno";
+        statusBadge.className = "status-badge parked";
+        noCarSection.classList.add("hidden");
+        carSection.classList.remove("hidden");
+
+        document.getElementById("parkedTime").textContent = carData.timestamp || "-";
+        document.getElementById("coordsText").textContent =
+          `${carData.lat.toFixed(6)}, ${carData.lng.toFixed(6)}`;
+        document.getElementById("noteInput").value = carData.note || "";
+
+        const navBtn = document.getElementById("navBtn");
+        navBtn.href = `https://www.google.com/maps/dir/?api=1&destination=${carData.lat},${carData.lng}`;
+
+        const preview = document.getElementById("photoPreview");
+        if (carData.photo) {
+          preview.src = carData.photo;
+          preview.style.display = "block";
+        } else {
+          preview.removeAttribute("src");
+          preview.style.display = "none";
+        }
+      } else {
+        statusBadge.textContent = "Auto není zaparkováno";
+        statusBadge.className = "status-badge empty";
+        noCarSection.classList.remove("hidden");
+        carSection.classList.add("hidden");
+      }
+    }
+
+    function parkCar() {
+      if (!navigator.geolocation) {
+        alert("Geolokace není v tomto prohlížeči podporována.");
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          carData = {
+            lat: position.coords.latitude,
+            lng: position.coords.longitude,
+            timestamp: new Date().toLocaleString("cs-CZ"),
+            note: "",
+            photo: null
+          };
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(carData));
+          updateUI();
+        },
+        (error) => {
+          alert("Nepodařilo se získat polohu: " + error.message);
+        },
+        { enableHighAccuracy: true, timeout: 10000 }
+      );
+    }
+
+    function saveNote() {
+      if (carData) {
+        carData.note = document.getElementById("noteInput").value.trim();
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(carData));
+        alert("Poznámka byla uložena.");
+      }
+    }
+
+    function handlePhoto(event) {
+      const file = event.target.files && event.target.files[0];
+      if (file && carData) {
+        const reader = new FileReader();
+        reader.onload = function (e) {
+          carData.photo = e.target.result;
+          try {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(carData));
+            updateUI();
+          } catch (err) {
+            alert("Fotka je příliš velká pro uložení v prohlížeči. Zkuste menší obrázek.");
+          }
+        };
+        reader.readAsDataURL(file);
+      }
+    }
+
+    function clearCar() {
+      if (confirm("Opravdu chcete smazat uloženou polohu auta?")) {
+        carData = null;
+        localStorage.removeItem(STORAGE_KEY);
+        const photoInput = document.getElementById("photoInput");
+        if (photoInput) photoInput.value = "";
+        updateUI();
+      }
+    }
+
+    // Inicializace při startu
+    updateUI();
+  </script>
+</body>
+</html>
